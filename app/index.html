@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Umbra — Ambient Drone Synthesizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0c;--panel:#111116;--panel2:#16161d;
+  --accent:#7b6cff;--cool:#4fc3f7;--danger:#ff5f6d;--green:#4caf82;
+  --text:#e8e6f0;--dim:#6b6880;--stroke:#232230;
+  --radius:10px;--font:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font);
+  height:100%;overflow:hidden;user-select:none;}
+#start{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
+  justify-content:center;z-index:999;flex-direction:column;gap:20px;}
+#start-logo{font-size:48px;font-weight:700;letter-spacing:.15em;
+  background:linear-gradient(135deg,var(--text),var(--dim));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+#start p{color:var(--dim);font-size:14px;letter-spacing:.08em;}
+#start-btn{margin-top:8px;padding:12px 36px;background:var(--accent);color:#fff;
+  border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;
+  letter-spacing:.04em;transition:opacity .2s,transform .2s;}
+#start-btn:hover{opacity:.85;transform:translateY(-1px);}
+
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* Transport */
+#transport{display:flex;align-items:center;gap:8px;padding:10px 14px;
+  background:var(--panel);border-bottom:1px solid var(--stroke);flex-shrink:0;}
+.logo{font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--text);margin-right:8px;}
+.tb{padding:6px 14px;border:1px solid var(--stroke);border-radius:6px;
+  background:transparent;color:var(--dim);font-size:11px;font-weight:600;
+  letter-spacing:.1em;cursor:pointer;transition:all .15s;}
+.tb:hover{color:var(--text);border-color:var(--dim);}
+.tb.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tb.play{border-color:var(--green);color:var(--green);}
+.tb.play:hover,.tb.play.active{background:var(--green);color:#fff;}
+.tb.danger{border-color:var(--danger);color:var(--danger);}
+.tb.danger:hover{background:var(--danger);color:#fff;}
+.t-sep{width:1px;height:24px;background:var(--stroke);margin:0 4px;}
+.root-display{display:flex;align-items:center;gap:8px;}
+.root-val{font-size:18px;font-weight:600;color:var(--text);min-width:36px;}
+.root-lbl{font-size:9px;letter-spacing:.12em;color:var(--dim);}
+.step-btn{width:22px;height:22px;border:1px solid var(--stroke);border-radius:4px;
+  background:none;color:var(--dim);cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.step-btn:hover{color:var(--text);border-color:var(--dim);}
+#scale-sel{background:var(--panel2);color:var(--text);border:1px solid var(--stroke);
+  border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;outline:none;
+  font-family:var(--font);}
+.t-spacer{flex:1;}
+#meter{width:80px;height:12px;position:relative;}
+.meter-bar{position:absolute;top:0;height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--green),#a5d65a,var(--danger));
+  transition:width .05s;}
+#meter-l{top:0;height:5px;width:0;}
+#meter-r{bottom:0;top:7px;height:5px;width:0;}
+
+/* Scroll area */
+#panels{overflow-y:auto;flex:1;padding:8px 10px 60px;
+  display:flex;flex-direction:column;gap:6px;}
+#panels::-webkit-scrollbar{width:4px;}
+#panels::-webkit-scrollbar-thumb{background:var(--stroke);border-radius:2px;}
+
+/* Panel */
+.panel{background:var(--panel);border:1px solid var(--stroke);border-radius:var(--radius);
+  padding:12px 14px;}
+.panel-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.panel-title{font-size:9px;letter-spacing:.15em;color:var(--dim);text-transform:uppercase;}
+.panel-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;}
+.sep{width:1px;height:60px;background:var(--stroke);margin:0 4px;align-self:center;}
+.sep-h{height:1px;background:var(--stroke);margin:8px 0;}
+
+/* Knob */
+.kw{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;}
+.kw canvas{cursor:ns-resize;display:block;}
+.kw canvas:active{cursor:grabbing;}
+.knob-lbl{font-size:8px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;
+  text-align:center;line-height:1.2;}
+.knob-val{font-size:9px;color:var(--text);text-align:center;min-height:12px;
+  font-variant-numeric:tabular-nums;}
+
+/* Chip toggle */
+.chip{padding:4px 10px;border:1px solid var(--stroke);border-radius:20px;
+  font-size:9px;letter-spacing:.1em;color:var(--dim);cursor:pointer;
+  transition:all .15s;white-space:nowrap;}
+.chip:hover{color:var(--text);border-color:var(--dim);}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.chip.on.cool{background:var(--cool);border-color:var(--cool);}
+.chip.on.danger{background:var(--danger);border-color:var(--danger);}
+.chip.on.green{background:var(--green);border-color:var(--green);}
+
+/* Picker (arp wave, arp pattern) */
+.picker{display:flex;gap:3px;}
+.pick-btn{padding:3px 7px;border:1px solid var(--stroke);border-radius:4px;
+  font-size:9px;letter-spacing:.06em;color:var(--dim);cursor:pointer;
+  transition:all .12s;background:none;}
+.pick-btn:hover{color:var(--text);}
+.pick-btn.sel{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* Slicer grid */
+.sl-grid{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin-top:6px;}
+.sl-step{height:20px;border:1px solid var(--stroke);border-radius:3px;
+  cursor:pointer;transition:background .15s;}
+.sl-step.on{background:var(--accent);}
+.sl-step.cur{box-shadow:0 0 0 1px var(--cool);}
+
+/* Preset bar */
+#preset-bar{position:fixed;bottom:0;left:0;right:0;height:44px;
+  background:var(--panel);border-top:1px solid var(--stroke);
+  display:flex;align-items:center;gap:4px;padding:0 10px;overflow-x:auto;}
+#preset-bar::-webkit-scrollbar{display:none;}
+.preset-btn{padding:5px 14px;border:1px solid var(--stroke);border-radius:20px;
+  font-size:10px;letter-spacing:.06em;color:var(--dim);cursor:pointer;
+  transition:all .15s;white-space:nowrap;background:none;}
+.preset-btn:hover{color:var(--text);border-color:var(--dim);}
+.preset-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* Lil note label */
+.note-lbl{font-size:9px;color:var(--dim);letter-spacing:.08em;}
+.col{display:flex;flex-direction:column;gap:6px;}
+.row{display:flex;align-items:center;gap:6px;}
+.divider-v{width:1px;background:var(--stroke);align-self:stretch;margin:0 2px;}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <div id="start-logo">UMBRA</div>
+  <p>Ambient Drone Synthesizer</p>
+  <button id="start-btn">Open Studio</button>
+</div>
+
+<div id="app" style="display:none">
+  <!-- Transport -->
+  <div id="transport">
+    <span class="logo">UMBRA</span>
+    <div class="t-sep"></div>
+    <button class="tb play" id="btn-play">PLAY</button>
+    <button class="tb" id="btn-hold">HOLD</button>
+    <button class="tb danger" id="btn-random">RANDOM</button>
+    <div class="t-sep"></div>
+    <div class="root-display">
+      <div class="col" style="gap:2px">
+        <div class="root-lbl">ROOT</div>
+        <div id="root-val" class="root-val">B1</div>
+      </div>
+      <div class="col" style="gap:3px">
+        <button class="step-btn" id="root-up">+</button>
+        <button class="step-btn" id="root-dn">−</button>
+      </div>
+    </div>
+    <div class="t-sep"></div>
+    <div class="col" style="gap:2px">
+      <div class="root-lbl">SCALE</div>
+      <select id="scale-sel"></select>
+    </div>
+    <div class="t-spacer"></div>
+    <div id="meter">
+      <div class="meter-bar" id="meter-l"></div>
+      <div class="meter-bar" id="meter-r"></div>
+    </div>
+  </div>
+
+  <!-- Panels scroll area -->
+  <div id="panels">
+
+    <!-- Synthesis panel -->
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">SYNTHESIS</span></div>
+      <div class="panel-row" id="synth-knobs"></div>
+    </div>
+
+    <!-- Sub + Sync in one row -->
+    <div style="display:flex;gap:6px">
+      <div class="panel" style="flex:1">
+        <div class="panel-hdr"><span class="panel-title">SUB</span><span id="sub-toggle" class="chip" style="margin-left:auto">OFF</span></div>
+        <div class="panel-row" id="sub-knobs"></div>
+      </div>
+      <div class="panel" style="flex:2">
+        <div class="panel-hdr"><span class="panel-title">SYNC / MOD</span></div>
+        <div class="panel-row" id="sync-chips" style="margin-bottom:8px"></div>
+        <div class="panel-row" id="sync-knobs"></div>
+      </div>
+    </div>
+
+    <!-- Arp panel -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">ARPEGGIATOR</span>
+        <span id="arp-toggle" class="chip" style="margin-left:auto">OFF</span>
+      </div>
+      <div id="arp-body">
+        <div class="panel-row" id="arp-row1"></div>
+        <div class="sep-h"></div>
+        <div class="panel-row" id="arp-row2"></div>
+      </div>
+    </div>
+
+    <!-- Fragment slicer -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">FRAGMENT</span>
+        <span id="sl-toggle" class="chip" style="margin-left:auto">OFF</span>
+      </div>
+      <div id="sl-body">
+        <div class="panel-row" id="sl-row1"></div>
+        <div class="sep-h"></div>
+        <div class="panel-row" id="sl-pats" style="margin-bottom:6px;flex-wrap:nowrap;overflow-x:auto;gap:3px"></div>
+        <div class="sl-grid" id="sl-grid"></div>
+      </div>
+    </div>
+
+    <!-- Tremolo + Echo + Delay -->
+    <div style="display:flex;gap:6px">
+      <div class="panel" style="flex:1">
+        <div class="panel-hdr">
+          <span class="panel-title">TREMOLO</span>
+          <span id="trem-toggle" class="chip" style="margin-left:auto">OFF</span>
+        </div>
+        <div class="panel-row" id="trem-knobs"></div>
+      </div>
+      <div class="panel" style="flex:1.4">
+        <div class="panel-hdr">
+          <span class="panel-title">ECHO</span>
+          <span id="echo-toggle" class="chip" style="margin-left:auto">OFF</span>
+        </div>
+        <div class="panel-row" id="echo-knobs"></div>
+      </div>
+      <div class="panel" style="flex:1.4">
+        <div class="panel-hdr">
+          <span class="panel-title">DELAY</span>
+          <span id="dly-toggle" class="chip" style="margin-left:auto">OFF</span>
+        </div>
+        <div class="panel-row" id="dly-knobs"></div>
+      </div>
+    </div>
+
+  </div><!-- /panels -->
+
+  <!-- Preset bar -->
+  <div id="preset-bar"></div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const SCALES = {
+  Lydian:          [0,2,4,6,7,9,11],
+  Major:           [0,2,4,5,7,9,11],
+  MajorPentatonic: [0,2,4,7,9],
+  Mixolydian:      [0,2,4,5,7,9,10],
+  Dorian:          [0,2,3,5,7,9,10],
+  Aeolian:         [0,2,3,5,7,8,10],
+  Phrygian:        [0,1,3,5,7,8,10],
+  HarmonicMinor:   [0,2,3,5,7,8,11],
+  Locrian:         [0,1,3,5,6,8,10],
+  DarkTension:     [0,1,3,5,6,8,10],
+};
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const midiToHz = m => 440 * Math.pow(2,(m-69)/12);
+const midiName = m => NOTE_NAMES[m%12] + Math.floor(m/12-1);
+const expMap = (t,lo,hi) => lo * Math.pow(hi/lo, Math.max(0,Math.min(1,t)));
+
+const SLICER_PATS = [
+  { name:'SOLID', bits:0xFFFF },
+  { name:'8TH',   bits:0x5555 },
+  { name:'4TH',   bits:0x1111 },
+  { name:'SYNC',  bits:0xB5AD },
+  { name:'GLITCH',bits:0x92D5 },
+  { name:'TRIBAL',bits:0xA569 },
+];
+const ARP_WAVES = [0,2,3,1]; // sine→saw→square→tri (index→waveform)
+const VOICE_PANS = [-0.75,0.75,-0.40,0.40,-0.60,0.60];
+
+// ── Presets ────────────────────────────────────────────────────────────────
+const D = { // defaults
+  density:0.50,brightness:0.55,morphSaw:0.00,detune:0.30,cutoff:0.35,
+  reverb:0.75,drive:0.30,saturation:0.00,chaos:0.10,volume:0.82,
+  hardSync:false,mono:false,highLayer:false,transpose:0,
+  lfoRate:0.35,lfoDepth:0.30,hpCutoff:0.05,
+  subOn:false,subLevel:0.5,subOctave:0,
+  arpOn:false,arpBPM:120,arpDiv:0.25,arpFine:1.0,arpGate:0.70,arpLevel:0.35,
+  arpOctave:1,arpPattern:0,arpWaveIdx:1,arpSwing:0.0,arpAttack:0.13,arpPingPong:false,
+  slicerOn:false,slicerBPM:120,slicerDiv:0.0625,slicerDepth:0.80,slicerGrain:0.15,slicerPatIdx:0,
+  tremoloOn:false,tremoloRate:0.35,tremoloDepth:0.30,
+  echoOn:false,echoTime:0.25,echoFeedback:0.35,echoWet:0.35,
+  delayOn:false,delayTime:0.50,delayFeedback:0.35,delayWet:0.35,
+  fadeIn:4.0,
+};
+const PRESETS = [
+  { name:'Phosphene',    rootNote:35, scale:'Lydian',         ...D, density:.50,brightness:.55,reverb:.75,drive:.30,chaos:.10,volume:.82 },
+  { name:'Debris Cloud', rootNote:33, scale:'Aeolian',        ...D, density:.70,brightness:.30,morphSaw:.45,detune:.50,cutoff:.20,reverb:.85,drive:.50,saturation:.15,chaos:.30,volume:.75 },
+  { name:'Motorik',      rootNote:33, scale:'Dorian',         ...D, density:.40,brightness:.50,morphSaw:.20,detune:.20,cutoff:.45,reverb:.60,drive:.25,chaos:.15,volume:.80,
+    arpOn:true,arpBPM:120,arpDiv:.25,arpWaveIdx:1,arpSwing:.05,arpPingPong:true,arpLevel:.32 },
+  { name:'Deep Field',   rootNote:28, scale:'Mixolydian',     ...D, density:.80,brightness:.25,morphSaw:.60,detune:.65,cutoff:.15,reverb:.90,drive:.35,saturation:.15,chaos:.20,volume:.78 },
+  { name:'Solstice',     rootNote:36, scale:'MajorPentatonic',...D, density:.45,brightness:.70,morphSaw:.10,detune:.20,cutoff:.55,reverb:.65,drive:.15,chaos:.05,volume:.85 },
+  { name:'Pulse Field',  rootNote:33, scale:'Major',          ...D, density:.55,brightness:.45,morphSaw:.30,detune:.35,cutoff:.40,reverb:.55,drive:.40,saturation:.20,chaos:.25,volume:.80,
+    slicerOn:true,slicerBPM:120,slicerDiv:.0625,slicerDepth:.75,slicerPatIdx:1 },
+  { name:'Haze',         rootNote:36, scale:'Phrygian',       ...D, density:.65,brightness:.20,morphSaw:.75,detune:.60,cutoff:.10,reverb:.95,drive:.60,saturation:.35,chaos:.40,volume:.70,
+    echoOn:true,echoTime:.30,echoFeedback:.45,echoWet:.40 },
+  { name:'Liminal',      rootNote:32, scale:'HarmonicMinor',  ...D, density:.35,brightness:.65,morphSaw:.05,detune:.15,cutoff:.60,reverb:.50,drive:.10,chaos:.08,volume:.88,
+    tremoloOn:true,tremoloRate:.28,tremoloDepth:.20 },
+  { name:'Dark Tension', rootNote:30, scale:'DarkTension',    ...D, density:.75,brightness:.15,morphSaw:.90,detune:.70,cutoff:.08,reverb:.88,drive:.70,saturation:.45,chaos:.50,volume:.72,
+    arpOn:true,arpBPM:90,arpDiv:.125,arpWaveIdx:2,arpSwing:.12,arpPingPong:true,arpLevel:.40 },
+];
+
+// ── App State ──────────────────────────────────────────────────────────────
+const state = { playing:false, hold:false, rootNote:35, scale:'Lydian', ...D };
+
+// ── Engine ─────────────────────────────────────────────────────────────────
+let engine = null;
+
+async function startEngine() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  await ctx.audioWorklet.addModule('./processor.js');
+
+  const worklet = new AudioWorkletNode(ctx, 'umbra-processor', {
+    numberOfOutputs: 1, outputChannelCount: [2]
+  });
+
+  // Reverb
+  const reverbConv = ctx.createConvolver();
+  reverbConv.buffer = makeReverbIR(ctx, 3.5, 2.8);
+  const reverbDry = ctx.createGain();
+  const reverbWet = ctx.createGain();
+  reverbDry.gain.value = 1; reverbWet.gain.value = 0;
+
+  // Delay
+  const delayNode = ctx.createDelay(2.0);
+  const delayFB   = ctx.createGain();
+  const delayWet  = ctx.createGain();
+  const delayDry  = ctx.createGain();
+  delayNode.delayTime.value = 0.5;
+  delayFB.gain.value = 0.35;
+  delayWet.gain.value = 0; delayDry.gain.value = 1;
+
+  // Analyser
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 256;
+
+  // Connect graph
+  worklet.connect(reverbDry);
+  worklet.connect(reverbConv);
+  reverbConv.connect(reverbWet);
+
+  // post-reverb → delay section
+  const preDelay = ctx.createGain();
+  reverbDry.connect(preDelay);
+  reverbWet.connect(preDelay);
+
+  preDelay.connect(delayDry);
+  preDelay.connect(delayNode);
+  delayNode.connect(delayFB);
+  delayFB.connect(delayNode);
+  delayNode.connect(delayWet);
+
+  delayDry.connect(analyser);
+  delayWet.connect(analyser);
+  analyser.connect(ctx.destination);
+
+  engine = { ctx, worklet, reverbConv, reverbDry, reverbWet,
+             delayNode, delayFB, delayWet, delayDry, analyser };
+
+  startMeter();
+  pushParams();
+}
+
+function makeReverbIR(ctx, dur=3.5, decay=2.8) {
+  const len = Math.ceil(ctx.sampleRate * dur);
+  const ir  = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c=0; c<2; c++) {
+    const d = ir.getChannelData(c);
+    for (let i=0; i<len; i++) {
+      const t = i/len;
+      d[i] = (Math.random()*2-1) * Math.pow(1-t, decay);
+    }
+  }
+  return ir;
+}
+
+// ── Voice frequency computation ────────────────────────────────────────────
+function computeVoiceFreqs() {
+  const ivs  = SCALES[state.scale] || SCALES.Lydian;
+  const root = state.rootNote + state.transpose;
+  const n    = activeVoices();
+
+  // Build note pool (3 octaves up from root)
+  const pool = [];
+  for (let o=0; o<3; o++) for (const iv of ivs) pool.push(root + o*12 + iv);
+  pool.sort((a,b)=>a-b);
+
+  const result = [];
+  for (let i=0; i<n; i++) {
+    const t   = n===1 ? 0.5 : i/(n-1);
+    const max = Math.max(1, Math.round(state.density * (pool.length-1)));
+    const idx = Math.min(pool.length-1, Math.round(t * max));
+    result.push(midiToHz(pool[idx]));
+  }
+  return result;
+}
+
+function activeVoices() {
+  return Math.max(1, Math.min(6, 1 + Math.floor(state.density * 5.999)));
+}
+
+function computeArpNotes() {
+  const ivs  = SCALES[state.scale] || SCALES.Lydian;
+  const root = state.rootNote + state.transpose;
+  const octs = Math.max(1, state.arpOctave);
+  const notes = [];
+  for (let o=0; o<octs; o++) for (const iv of ivs) notes.push(root + o*12 + iv);
+  return notes.map(midiToHz);
+}
+
+// ── Push params to worklet & native nodes ──────────────────────────────────
+function pushParams() {
+  if (!engine) return;
+  const n      = activeVoices();
+  const maxC   = expMap(state.brightness, 400, 12000);
+  const cutHz  = expMap(state.cutoff, 60, maxC);
+  const hpHz   = expMap(state.hpCutoff, 20, 800);
+  const detC   = state.detune * 22;
+  const pit    = 2 + state.chaos * 18;
+  const noisL  = state.chaos * 0.06;
+  const reso   = 0.65 + state.chaos * 0.5;
+  const panD   = 0.15 + state.chaos * 0.65;
+  const subM   = state.rootNote + state.transpose - 12 * (state.subOctave+1);
+
+  engine.worklet.port.postMessage({
+    activeVoices:  n,
+    voiceFreqs:    computeVoiceFreqs(),
+    voicePans:     VOICE_PANS.slice(0,n),
+    voiceWaves:    Array(n).fill(1),          // triangle always; morph handles saw blend
+    cutoffHz:      cutHz,
+    hpCutoffHz:    hpHz,
+    resonance:     reso,
+    brightness:    state.brightness,
+    drive:         state.drive,
+    saturation:    state.saturation,
+    filterLFORate: expMap(state.lfoRate, 0.04, 2.0),
+    filterLFODepth:state.lfoDepth * 3.0,
+    tremoloOn:     state.tremoloOn,
+    tremoloRate:   expMap(state.tremoloRate, 0.10, 1.5),
+    tremoloDepth:  state.tremoloOn ? state.tremoloDepth * 0.5 : 0,
+    morphSaw:      state.morphSaw,
+    detuneCents:   detC,
+    pitchDrift:    pit,
+    noiseLevel:    noisL,
+    panDepth:      panD,
+    hardSync:      state.hardSync,
+    mono:          state.mono,
+    highLayer:     state.highLayer,
+    subFreq:       midiToHz(subM),
+    subLevel:      state.subOn ? state.subLevel * 0.45 : 0,
+    arpOn:         state.arpOn,
+    arpNotes:      state.arpOn ? computeArpNotes() : [],
+    arpBPM:        state.arpBPM,
+    arpDiv:        state.arpDiv,
+    arpFine:       state.arpFine,
+    arpGate:       state.arpGate,
+    arpLevel:      state.arpLevel,
+    arpWave:       ARP_WAVES[state.arpWaveIdx],
+    arpSwing:      state.arpSwing,
+    arpAttack:     0.003 + state.arpAttack * 0.297,
+    arpPingPong:   state.arpPingPong,
+    arpPattern:    state.arpPattern,
+    slicerOn:      state.slicerOn,
+    slicerBPM:     state.slicerBPM,
+    slicerDiv:     state.slicerDiv,
+    slicerDepth:   state.slicerDepth,
+    slicerGrain:   0.05 + state.slicerGrain * 0.45,
+    slicerPat:     SLICER_PATS[state.slicerPatIdx].bits,
+    echoOn:        state.echoOn,
+    echoTime:      expMap(state.echoTime, 0.01, 1.0),
+    echoFeedback:  state.echoFeedback * 0.92,
+    echoWet:       state.echoWet,
+    volume:        state.volume,
+    fadeTarget:    state.playing ? 1 : 0,
+    fadeTimeMs:    state.playing ? state.fadeIn * 1000 : 1500,
+    hold:          state.hold,
+  });
+
+  // Native Web Audio
+  engine.reverbWet.gain.value  = state.reverb * 0.9;
+  engine.reverbDry.gain.value  = 1 - state.reverb * 0.4;
+
+  if (state.delayOn) {
+    engine.delayNode.delayTime.setTargetAtTime(expMap(state.delayTime,0.05,1.5), engine.ctx.currentTime, 0.01);
+    engine.delayFB.gain.value  = state.delayFeedback * 0.88;
+    engine.delayWet.gain.value = state.delayWet * 0.8;
+    engine.delayDry.gain.value = 1 - state.delayWet * 0.3;
+  } else {
+    engine.delayWet.gain.value = 0;
+    engine.delayDry.gain.value = 1;
+  }
+}
+
+// ── Knob class ─────────────────────────────────────────────────────────────
+const knobMap = new Map();
+
+class Knob {
+  constructor(parent, { name, min=0, max=1, value=0.5, label='',
+                        accent='#7b6cff', fmt=null, size=52 }) {
+    this.min=min; this.max=max; this.value=value;
+    this.accent=accent; this.fmt=fmt; this.size=size;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'kw';
+    this.canvas = document.createElement('canvas');
+    this.canvas.width=size; this.canvas.height=size;
+    this.canvas.style.width=size+'px'; this.canvas.style.height=size+'px';
+    this.lbl = document.createElement('div');
+    this.lbl.className='knob-lbl'; this.lbl.textContent=label;
+    this.valEl = document.createElement('div');
+    this.valEl.className='knob-val';
+    wrap.append(this.canvas, this.lbl, this.valEl);
+    parent.appendChild(wrap);
+
+    this._bind();
+    this.draw();
+    if (name) knobMap.set(name, this);
+  }
+
+  _bind() {
+    let sy, sv;
+    const move = e => {
+      const dy = sy - (e.clientY ?? e.touches[0].clientY);
+      this.setValue(Math.max(this.min, Math.min(this.max, sv + dy*(this.max-this.min)/180)));
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      document.removeEventListener('touchmove', move);
+      document.removeEventListener('touchend', up);
+    };
+    this.canvas.addEventListener('mousedown', e => {
+      sy=e.clientY; sv=this.value;
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+      e.preventDefault();
+    });
+    this.canvas.addEventListener('touchstart', e => {
+      sy=e.touches[0].clientY; sv=this.value;
+      document.addEventListener('touchmove', move, {passive:false});
+      document.addEventListener('touchend', up);
+      e.preventDefault();
+    }, {passive:false});
+    this.canvas.addEventListener('wheel', e => {
+      const d = -e.deltaY*(this.max-this.min)/800;
+      this.setValue(Math.max(this.min, Math.min(this.max, this.value+d)));
+      e.preventDefault();
+    }, {passive:false});
+  }
+
+  setValue(v, silent=false) {
+    this.value = v;
+    this.draw();
+    if (!silent && this._onChange) this._onChange(v);
+  }
+
+  onChange(fn) { this._onChange = fn; return this; }
+
+  draw() {
+    const c=this.canvas.getContext('2d'), s=this.size, cx=s/2, cy=s/2, r=s*.38;
+    c.clearRect(0,0,s,s);
+    const sa=Math.PI*.75, ea=Math.PI*2.25;
+    const t=(this.value-this.min)/(this.max-this.min);
+    const ang=sa+t*(ea-sa);
+
+    c.beginPath(); c.arc(cx,cy,r,sa,ea);
+    c.strokeStyle='#232230'; c.lineWidth=3; c.lineCap='round'; c.stroke();
+
+    c.beginPath(); c.arc(cx,cy,r,sa,ang);
+    c.strokeStyle=this.accent; c.lineWidth=3; c.stroke();
+
+    const g=c.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r*.95);
+    g.addColorStop(0,'#1e1e2e'); g.addColorStop(1,'#0d0d14');
+    c.beginPath(); c.arc(cx,cy,r-4,0,Math.PI*2);
+    c.fillStyle=g; c.fill();
+
+    const ix=cx+(r-3)*.7*Math.cos(ang-Math.PI/2);
+    const iy=cy+(r-3)*.7*Math.sin(ang-Math.PI/2);
+    c.beginPath(); c.arc(ix,iy,2.5,0,Math.PI*2);
+    c.fillStyle=this.accent; c.fill();
+
+    const str = this.fmt ? this.fmt(this.value) : Math.round(t*100)+'%';
+    this.valEl.textContent = str;
+  }
+}
+
+function knob(parent, name, label, min, max, val, acc, fmt) {
+  return new Knob(parent, {name,min,max,value:val,label,accent:acc||'#7b6cff',fmt});
+}
+
+// ── Chip helper ────────────────────────────────────────────────────────────
+function chip(parent, label, key, cls='') {
+  const el = document.createElement('span');
+  el.className='chip'+(cls?' '+cls:'');
+  el.textContent=label;
+  el.dataset.state=label;
+  if (state[key]) el.classList.add('on');
+  el.onclick = () => {
+    state[key] = !state[key];
+    el.classList.toggle('on', state[key]);
+    el.textContent = state[key] ? 'ON' : 'OFF';
+    pushParams();
+    updateDimming();
+  };
+  parent.appendChild(el);
+  return el;
+}
+
+// ── Picker helper ──────────────────────────────────────────────────────────
+function picker(parent, options, stateKey, onChange) {
+  const wrap = document.createElement('div');
+  wrap.className='picker';
+  options.forEach((lbl,i)=>{
+    const b = document.createElement('button');
+    b.className='pick-btn'+(state[stateKey]===i?' sel':'');
+    b.textContent=lbl;
+    b.onclick=()=>{
+      state[stateKey]=i;
+      wrap.querySelectorAll('.pick-btn').forEach((el,j)=>el.classList.toggle('sel',j===i));
+      if(onChange) onChange(i);
+      pushParams();
+    };
+    wrap.appendChild(b);
+  });
+  parent.appendChild(wrap);
+  return wrap;
+}
+
+// ── Build UI ───────────────────────────────────────────────────────────────
+function buildUI() {
+  // Scale selector
+  const sel = document.getElementById('scale-sel');
+  Object.keys(SCALES).forEach(s => {
+    const o = document.createElement('option');
+    o.value=o.textContent=s;
+    if(s===state.scale) o.selected=true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => { state.scale=sel.value; pushParams(); };
+
+  // Root note
+  document.getElementById('root-val').textContent = midiName(state.rootNote);
+  document.getElementById('root-up').onclick = () => {
+    state.rootNote=Math.min(48,state.rootNote+1);
+    document.getElementById('root-val').textContent=midiName(state.rootNote);
+    pushParams();
+  };
+  document.getElementById('root-dn').onclick = () => {
+    state.rootNote=Math.max(24,state.rootNote-1);
+    document.getElementById('root-val').textContent=midiName(state.rootNote);
+    pushParams();
+  };
+
+  // Transport
+  const btnPlay = document.getElementById('btn-play');
+  btnPlay.onclick = () => {
+    state.playing = !state.playing;
+    btnPlay.classList.toggle('active', state.playing);
+    btnPlay.textContent = state.playing ? 'STOP' : 'PLAY';
+    pushParams();
+  };
+  document.getElementById('btn-hold').onclick = function(){
+    state.hold = !state.hold;
+    this.classList.toggle('active', state.hold);
+    pushParams();
+  };
+  document.getElementById('btn-random').onclick = () => {
+    const scaleNames = Object.keys(SCALES);
+    state.scale = scaleNames[Math.floor(Math.random()*scaleNames.length)];
+    state.rootNote = 28 + Math.floor(Math.random()*12);
+    document.getElementById('root-val').textContent = midiName(state.rootNote);
+    document.getElementById('scale-sel').value = state.scale;
+    pushParams();
+  };
+
+  // Synthesis knobs
+  const sk = document.getElementById('synth-knobs');
+  knob(sk,'density','Density',0,1,state.density).onChange(v=>{state.density=v;pushParams();});
+  knob(sk,'brightness','Brightness',0,1,state.brightness).onChange(v=>{state.brightness=v;pushParams();});
+  knob(sk,'morphSaw','Morph',0,1,state.morphSaw,'#4fc3f7',v=>v<.02?'SINE':v>.98?'SAW':Math.round(v*100)+'%').onChange(v=>{state.morphSaw=v;pushParams();});
+  knob(sk,'detune','Detune',0,1,state.detune,'#4fc3f7',v=>Math.round(v*22)+'¢').onChange(v=>{state.detune=v;pushParams();});
+  knob(sk,'cutoff','Cutoff',0,1,state.cutoff,null,v=>Math.round(expMap(v,60,12000))+'Hz').onChange(v=>{state.cutoff=v;pushParams();});
+  knob(sk,'reverb','Reverb',0,1,state.reverb).onChange(v=>{state.reverb=v;pushParams();});
+  knob(sk,'drive','Drive',0,1,state.drive).onChange(v=>{state.drive=v;pushParams();});
+  knob(sk,'chaos','Chaos',0,1,state.chaos,'#ff5f6d').onChange(v=>{state.chaos=v;pushParams();});
+  knob(sk,'volume','Volume',0,1,state.volume).onChange(v=>{state.volume=v;pushParams();});
+  knob(sk,'saturation','Sat',0,1,state.saturation,'#ff5f6d',v=>{const db=20*Math.log10(1+v*5);return '+'+db.toFixed(1)+'dB';}).onChange(v=>{state.saturation=v;pushParams();});
+
+  // Sub knobs
+  const sbk = document.getElementById('sub-knobs');
+  document.getElementById('sub-toggle').onclick = function(){
+    state.subOn=!state.subOn; this.classList.toggle('on',state.subOn);
+    this.textContent=state.subOn?'ON':'OFF'; pushParams();
+  };
+  knob(sbk,'subLevel','Level',0,1,state.subLevel,null,v=>Math.round(v*100)+'%').onChange(v=>{state.subLevel=v;pushParams();});
+  knob(sbk,'subOctave','Octave',0,2,state.subOctave,null,v=>'-'+Math.round(v+1)+'oct',52).onChange(v=>{state.subOctave=v;pushParams();});
+
+  // Sync chips + knobs
+  const schips = document.getElementById('sync-chips');
+  const hschip = document.createElement('span');
+  hschip.className='chip'+(state.hardSync?' on':''); hschip.textContent='HARD SYNC';
+  hschip.onclick=()=>{state.hardSync=!state.hardSync;hschip.classList.toggle('on',state.hardSync);pushParams();};
+  schips.appendChild(hschip);
+
+  const monochip = document.createElement('span');
+  monochip.className='chip'+(state.mono?' on':''); monochip.textContent='MONO';
+  monochip.onclick=()=>{state.mono=!state.mono;monochip.classList.toggle('on',state.mono);pushParams();};
+  schips.appendChild(monochip);
+
+  const hlchip = document.createElement('span');
+  hlchip.className='chip'+(state.highLayer?' on':''); hlchip.textContent='HIGH LAYER';
+  hlchip.onclick=()=>{state.highLayer=!state.highLayer;hlchip.classList.toggle('on',state.highLayer);pushParams();};
+  schips.appendChild(hlchip);
+
+  const snk = document.getElementById('sync-knobs');
+  knob(snk,'lfoRate','LFO Rate',0,1,state.lfoRate,'#4fc3f7',v=>expMap(v,.04,2).toFixed(2)+'Hz').onChange(v=>{state.lfoRate=v;pushParams();});
+  knob(snk,'lfoDepth','LFO Depth',0,1,state.lfoDepth,'#4fc3f7').onChange(v=>{state.lfoDepth=v;pushParams();});
+  snk.innerHTML+=''; // spacer
+  const sep=document.createElement('div'); sep.className='sep'; snk.appendChild(sep);
+  knob(snk,'hpCutoff','HP Cut',0,1,state.hpCutoff,null,v=>Math.round(expMap(v,20,800))+'Hz').onChange(v=>{state.hpCutoff=v;pushParams();});
+  knob(snk,'transpose','Transpose',-12,12,state.transpose,'#4fc3f7',v=>(v>=0?'+':'')+Math.round(v)).onChange(v=>{state.transpose=Math.round(v);pushParams();});
+
+  // ARP
+  document.getElementById('arp-toggle').onclick = function(){
+    state.arpOn=!state.arpOn; this.classList.toggle('on',state.arpOn);
+    this.textContent=state.arpOn?'ON':'OFF'; pushParams(); updateDimming();
+  };
+  const ar1 = document.getElementById('arp-row1');
+  knob(ar1,'arpBPM','BPM',40,240,state.arpBPM,null,v=>Math.round(v)+' bpm').onChange(v=>{state.arpBPM=v;pushParams();});
+  // Division picker inline
+  const divWrap=document.createElement('div'); divWrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:3px;';
+  const divLbl=document.createElement('div'); divLbl.className='knob-lbl'; divLbl.textContent='DIV';
+  const divPicker=document.createElement('div'); divPicker.className='picker';
+  const divs=[{l:'1/4',v:.25},{l:'1/8',v:.125},{l:'1/16',v:.0625},{l:'1/32',v:.03125}];
+  divs.forEach(d=>{
+    const b=document.createElement('button'); b.className='pick-btn'+(state.arpDiv===d.v?' sel':'');
+    b.textContent=d.l; b.onclick=()=>{state.arpDiv=d.v;divPicker.querySelectorAll('.pick-btn').forEach((el,j)=>el.classList.toggle('sel',divs[j].v===d.v));pushParams();};
+    divPicker.appendChild(b);
+  });
+  divWrap.append(divLbl,divPicker); ar1.appendChild(divWrap);
+  knob(ar1,'arpFine','Fine',.5,2.0,state.arpFine,'#4fc3f7',v=>v.toFixed(2)+'×').onChange(v=>{state.arpFine=v;pushParams();});
+  knob(ar1,'arpGate','Gate',0,1,state.arpGate,null,v=>Math.round(v*100)+'%').onChange(v=>{state.arpGate=v;pushParams();});
+  knob(ar1,'arpLevel','Level',0,1,state.arpLevel).onChange(v=>{state.arpLevel=v;pushParams();});
+  const octWrap=document.createElement('div'); octWrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:3px;';
+  const octLbl=document.createElement('div'); octLbl.className='knob-lbl'; octLbl.textContent='OCT';
+  const octPicker=document.createElement('div'); octPicker.className='picker';
+  [1,2,3].forEach(o=>{
+    const b=document.createElement('button'); b.className='pick-btn'+(state.arpOctave===o?' sel':'');
+    b.textContent=o; b.onclick=()=>{state.arpOctave=o;octPicker.querySelectorAll('.pick-btn').forEach((el,j)=>el.classList.toggle('sel',j+1===o));pushParams();};
+    octPicker.appendChild(b);
+  });
+  octWrap.append(octLbl,octPicker); ar1.appendChild(octWrap);
+
+  // Arp pattern picker
+  const patWrap=document.createElement('div'); patWrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:3px;';
+  const patLbl=document.createElement('div'); patLbl.className='knob-lbl'; patLbl.textContent='PATTERN';
+  patWrap.append(patLbl); ar1.appendChild(patWrap);
+  picker(patWrap,['UP','DN','RND'],'arpPattern');
+
+  // Arp row2
+  const ar2 = document.getElementById('arp-row2');
+  const waveWrap=document.createElement('div'); waveWrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:3px;';
+  const waveLbl=document.createElement('div'); waveLbl.className='knob-lbl'; waveLbl.textContent='WAVE';
+  waveWrap.appendChild(waveLbl); ar2.appendChild(waveWrap);
+  picker(waveWrap,['SINE','SAW','SQR','TRI'],'arpWaveIdx');
+  knob(ar2,'arpSwing','Swing',0,.49,state.arpSwing,'#4fc3f7',v=>Math.round(v*100)+'%').onChange(v=>{state.arpSwing=v;pushParams();});
+  knob(ar2,'arpAttack','Attack',0,1,state.arpAttack,null,v=>(3+v*297).toFixed(0)+'ms').onChange(v=>{state.arpAttack=v;pushParams();});
+  const ppChip=document.createElement('span');
+  ppChip.className='chip'+(state.arpPingPong?' on cool':''); ppChip.textContent='PING-PONG';
+  ppChip.onclick=()=>{state.arpPingPong=!state.arpPingPong;ppChip.classList.toggle('on',state.arpPingPong);ppChip.classList.toggle('cool',state.arpPingPong);pushParams();};
+  ar2.appendChild(ppChip);
+
+  // Slicer
+  document.getElementById('sl-toggle').onclick = function(){
+    state.slicerOn=!state.slicerOn; this.classList.toggle('on',state.slicerOn);
+    this.textContent=state.slicerOn?'ON':'OFF'; pushParams(); updateDimming();
+  };
+  const slr1 = document.getElementById('sl-row1');
+  knob(slr1,'slicerBPM','BPM',40,240,state.slicerBPM,null,v=>Math.round(v)+' bpm').onChange(v=>{state.slicerBPM=v;pushParams();});
+  const sdivWrap=document.createElement('div'); sdivWrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:3px;';
+  const sdivLbl=document.createElement('div'); sdivLbl.className='knob-lbl'; sdivLbl.textContent='DIV';
+  const sdivPicker=document.createElement('div'); sdivPicker.className='picker';
+  const sdivs=[{l:'1/8',v:.125},{l:'1/16',v:.0625},{l:'1/32',v:.03125}];
+  sdivs.forEach(d=>{
+    const b=document.createElement('button'); b.className='pick-btn'+(state.slicerDiv===d.v?' sel':'');
+    b.textContent=d.l; b.onclick=()=>{state.slicerDiv=d.v;sdivPicker.querySelectorAll('.pick-btn').forEach((el,j)=>el.classList.toggle('sel',sdivs[j].v===d.v));pushParams();};
+    sdivPicker.appendChild(b);
+  });
+  sdivWrap.append(sdivLbl,sdivPicker); slr1.appendChild(sdivWrap);
+  knob(slr1,'slicerDepth','Depth',0,1,state.slicerDepth,'#ff5f6d').onChange(v=>{state.slicerDepth=v;pushParams();});
+  knob(slr1,'slicerGrain','Grain',0,1,state.slicerGrain,'#ff5f6d').onChange(v=>{state.slicerGrain=v;pushParams();});
+
+  // Slicer pattern buttons
+  const slPats = document.getElementById('sl-pats');
+  SLICER_PATS.forEach((p,i)=>{
+    const b=document.createElement('button'); b.className='pick-btn'+(state.slicerPatIdx===i?' sel':'');
+    b.textContent=p.name; b.style.fontSize='8px';
+    b.onclick=()=>{
+      state.slicerPatIdx=i;
+      slPats.querySelectorAll('.pick-btn').forEach((el,j)=>el.classList.toggle('sel',j===i));
+      updateSlicerGrid(); pushParams();
+    };
+    slPats.appendChild(b);
+  });
+
+  // Slicer grid
+  buildSlicerGrid();
+
+  // Tremolo
+  document.getElementById('trem-toggle').onclick = function(){
+    state.tremoloOn=!state.tremoloOn; this.classList.toggle('on',state.tremoloOn);
+    this.textContent=state.tremoloOn?'ON':'OFF'; pushParams(); updateDimming();
+  };
+  const tk = document.getElementById('trem-knobs');
+  knob(tk,'tremoloRate','Rate',0,1,state.tremoloRate,'#4fc3f7',v=>expMap(v,.1,1.5).toFixed(2)+'Hz').onChange(v=>{state.tremoloRate=v;pushParams();});
+  knob(tk,'tremoloDepth','Depth',0,1,state.tremoloDepth,null,v=>Math.round(v*100)+'%').onChange(v=>{state.tremoloDepth=v;pushParams();});
+
+  // Echo
+  document.getElementById('echo-toggle').onclick = function(){
+    state.echoOn=!state.echoOn; this.classList.toggle('on',state.echoOn);
+    this.textContent=state.echoOn?'ON':'OFF'; pushParams(); updateDimming();
+  };
+  const ek = document.getElementById('echo-knobs');
+  knob(ek,'echoTime','Time',0,1,state.echoTime,null,v=>Math.round(expMap(v,10,1000))+'ms').onChange(v=>{state.echoTime=v;pushParams();});
+  knob(ek,'echoFeedback','Fdbk',0,1,state.echoFeedback,null,v=>Math.round(v*100)+'%').onChange(v=>{state.echoFeedback=v;pushParams();});
+  knob(ek,'echoWet','Wet',0,1,state.echoWet).onChange(v=>{state.echoWet=v;pushParams();});
+
+  // Delay
+  document.getElementById('dly-toggle').onclick = function(){
+    state.delayOn=!state.delayOn; this.classList.toggle('on',state.delayOn);
+    this.textContent=state.delayOn?'ON':'OFF'; pushParams(); updateDimming();
+  };
+  const dk = document.getElementById('dly-knobs');
+  knob(dk,'delayTime','Time',0,1,state.delayTime,null,v=>Math.round(expMap(v,50,1500))+'ms').onChange(v=>{state.delayTime=v;pushParams();});
+  knob(dk,'delayFeedback','Fdbk',0,1,state.delayFeedback,null,v=>Math.round(v*100)+'%').onChange(v=>{state.delayFeedback=v;pushParams();});
+  knob(dk,'delayWet','Wet',0,1,state.delayWet).onChange(v=>{state.delayWet=v;pushParams();});
+
+  // Preset bar
+  buildPresetBar();
+  updateDimming();
+}
+
+// ── Slicer grid ────────────────────────────────────────────────────────────
+function buildSlicerGrid() {
+  const grid = document.getElementById('sl-grid');
+  grid.innerHTML = '';
+  const bits = SLICER_PATS[state.slicerPatIdx].bits;
+  for (let i=0; i<16; i++) {
+    const s = document.createElement('div');
+    s.className = 'sl-step' + (((bits>>i)&1)?'  on':'');
+    s.onclick = () => {
+      // Toggle this step in a custom pattern
+      SLICER_PATS[state.slicerPatIdx].bits ^= (1<<i);
+      s.classList.toggle('on', !!((SLICER_PATS[state.slicerPatIdx].bits>>i)&1));
+      pushParams();
+    };
+    grid.appendChild(s);
+  }
+}
+
+function updateSlicerGrid() {
+  const steps = document.querySelectorAll('.sl-step');
+  const bits = SLICER_PATS[state.slicerPatIdx].bits;
+  steps.forEach((s,i)=>s.classList.toggle('on',!!((bits>>i)&1)));
+}
+
+// ── Preset bar ─────────────────────────────────────────────────────────────
+let activePresetIdx = 0;
+function buildPresetBar() {
+  const bar = document.getElementById('preset-bar');
+  PRESETS.forEach((p,i) => {
+    const b = document.createElement('button');
+    b.className = 'preset-btn' + (i===0?' active':'');
+    b.textContent = p.name;
+    b.onclick = () => loadPreset(i);
+    bar.appendChild(b);
+  });
+}
+
+function loadPreset(idx) {
+  activePresetIdx = idx;
+  const p = PRESETS[idx];
+
+  // Copy all state fields from preset
+  Object.assign(state, p);
+  state.playing = false; // don't auto-play
+
+  // Update all knobs
+  knobMap.forEach((knob, name) => {
+    if (name in p) knob.setValue(p[name], true);
+  });
+
+  // Update root display
+  document.getElementById('root-val').textContent = midiName(state.rootNote);
+  document.getElementById('scale-sel').value = state.scale;
+
+  // Update toggles
+  updateToggleEl('sub-toggle', state.subOn);
+  updateToggleEl('arp-toggle', state.arpOn);
+  updateToggleEl('sl-toggle', state.slicerOn);
+  updateToggleEl('trem-toggle', state.tremoloOn);
+  updateToggleEl('echo-toggle', state.echoOn);
+  updateToggleEl('dly-toggle', state.delayOn);
+  updateToggleEl('btn-play', false, 'PLAY');
+
+  // Update slicer grid
+  buildSlicerGrid();
+
+  // Active preset highlight
+  document.querySelectorAll('.preset-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+
+  updateDimming();
+  pushParams();
+}
+
+function updateToggleEl(id, on, offLabel='OFF', onLabel='ON') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (id === 'btn-play') {
+    el.classList.toggle('active', false);
+    el.textContent = 'PLAY';
+    return;
+  }
+  el.classList.toggle('on', on);
+  el.textContent = on ? onLabel : offLabel;
+}
+
+// ── Visual dimming for inactive sections ───────────────────────────────────
+function updateDimming() {
+  const sets = [
+    ['arp-body', state.arpOn],
+    ['sl-body',  state.slicerOn],
+  ];
+  sets.forEach(([id, active]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = active ? '1' : '0.4';
+  });
+}
+
+// ── Level meter ────────────────────────────────────────────────────────────
+function startMeter() {
+  const buf = new Float32Array(engine.analyser.frequencyBinCount);
+  const mL  = document.getElementById('meter-l');
+  const mR  = document.getElementById('meter-r');
+  let peakL=0, peakR=0;
+
+  function tick() {
+    engine.analyser.getFloatTimeDomainData(buf);
+    let rms=0;
+    for (let i=0; i<buf.length; i++) rms += buf[i]*buf[i];
+    rms = Math.sqrt(rms/buf.length);
+    const pct = Math.min(100, rms * 500);
+    peakL = Math.max(peakL * 0.94, pct);
+    peakR = Math.max(peakR * 0.96, pct * 0.92);
+    mL.style.width = peakL + '%';
+    mR.style.width = peakR + '%';
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.getElementById('start-btn').onclick = async () => {
+  document.getElementById('start').style.display = 'none';
+  document.getElementById('app').style.display   = 'flex';
+  buildUI();
+  await startEngine();
+  // Auto-load first preset
+  loadPreset(0);
+};
+</script>
+</body>
+</html>
