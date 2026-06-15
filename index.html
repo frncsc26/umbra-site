@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Umbra — Ambient Drone Synthesizer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0c;
+      --panel: #111116;
+      --accent: #7b6cff;
+      --accent2: #4fc3f7;
+      --danger: #ff5f6d;
+      --text: #e8e6f0;
+      --dim: #6b6880;
+      --stroke: #232230;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Glow background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse, rgba(123,108,255,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* NAV */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--stroke);
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      color: var(--text);
+    }
+
+    .badge {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 3px 8px;
+      border-radius: 4px;
+      opacity: 0.8;
+    }
+
+    /* HERO */
+    .hero {
+      text-align: center;
+      padding: 100px 0 80px;
+    }
+
+    .hero-tag {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: clamp(48px, 8vw, 80px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--dim) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--dim);
+      max-width: 480px;
+      margin: 0 auto 48px;
+      line-height: 1.6;
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 14px 32px;
+      border-radius: 10px;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .download-btn:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+
+    .download-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .hero-meta {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--dim);
+    }
+
+    /* SCREENSHOT PLACEHOLDER */
+    .screenshot {
+      margin: 0 auto 100px;
+      max-width: 800px;
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .screenshot-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--stroke);
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.r { background: #ff5f57; }
+    .dot.y { background: #febc2e; }
+    .dot.g { background: #28c840; }
+
+    .screenshot-title {
+      font-size: 11px;
+      color: var(--dim);
+      letter-spacing: 0.08em;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .screenshot-body {
+      padding: 40px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+    }
+
+    .knob-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .knob-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid var(--stroke);
+      background: radial-gradient(circle at 35% 35%, #1e1e2e, #0d0d14);
+      position: relative;
+    }
+
+    .knob-circle::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 2px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 1px;
+      transform-origin: bottom center;
+      transform: translate(-50%, -100%) rotate(45deg);
+    }
+
+    .knob-label {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    /* FEATURES */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 100px;
+    }
+
+    .feature {
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      padding: 28px 24px;
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
+    .feature h3 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .feature p {
+      font-size: 13px;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+
+    /* INSTALL */
+    .install {
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      padding: 48px;
+      margin-bottom: 100px;
+      text-align: center;
+    }
+
+    .install h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 32px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      max-width: 440px;
+      margin: 0 auto 36px;
+      text-align: left;
+    }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--stroke);
+    }
+
+    .step:last-child { border-bottom: none; }
+
+    .step-num {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      min-width: 24px;
+      padding-top: 2px;
+    }
+
+    .step-text {
+      font-size: 14px;
+      color: var(--dim);
+      line-height: 1.5;
+    }
+
+    .step-text strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .install .download-btn {
+      font-size: 14px;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--stroke);
+      padding: 32px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--dim);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <nav>
+    <span class="logo">UMBRA</span>
+    <span class="badge">BETA 0.1</span>
+  </nav>
+
+  <section class="hero">
+    <p class="hero-tag">macOS Ambient Drone Synthesizer</p>
+    <h1>Shape the dark.</h1>
+    <p>A real-time drone synthesizer for macOS. Six oscillators, morphable waveforms, arpeggiator, rhythmic slicer, echo and tremolo — all built for slow, evolving sound.</p>
+    <a href="https://github.com/frncsc26/umbra-releases/releases/download/v0.1/Umbra.dmg" class="download-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download for macOS
+    </a>
+    <p class="hero-meta">macOS 13+ · Apple Silicon &amp; Intel · Free beta</p>
+  </section>
+
+  <div class="screenshot">
+    <div class="screenshot-bar">
+      <div class="dot r"></div>
+      <div class="dot y"></div>
+      <div class="dot g"></div>
+      <span class="screenshot-title">Umbra — Phosphene</span>
+    </div>
+    <div class="screenshot-body">
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Density</span></div>
+      <div class="knob-placeholder"><div class="knob-circle" style="--r:45deg"></div><span class="knob-label">Brightness</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Morph</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Cutoff</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Reverb</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Drive</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Sat</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Chaos</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Volume</span></div>
+      <div class="knob-placeholder"><div class="knob-circle"></div><span class="knob-label">Detune</span></div>
+    </div>
+  </div>
+
+  <section class="features">
+    <div class="feature">
+      <div class="feature-icon">〰️</div>
+      <h3>Drone Engine</h3>
+      <p>Up to 6 oscillators with independent detune, brightness blend, and slow LFO drift. From pure sine to full sawtooth with one knob.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🎹</div>
+      <h3>Arpeggiator</h3>
+      <p>Scale-aware arp with swing, ping-pong stereo, per-note attack envelope, and four waveforms. Separate from the drone layer.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">✂️</div>
+      <h3>Fragment</h3>
+      <p>16-step rhythmic gate that cuts and granularizes the output. Six patterns, adjustable depth and grain — from stutter to glitch.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🌊</div>
+      <h3>Echo + Reverb</h3>
+      <p>Echo placed before reverb so repeats swim in space. Large hall reverb for endless depth. Separate delay for rhythmic trails.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🎛️</div>
+      <h3>9 Presets</h3>
+      <p>From bright Lydian drones to dark tension scales. Phosphene, Debris Cloud, Motorik and more — each with its own character.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Real-time</h3>
+      <p>Allocation-free audio thread, spin-lock parameter passing, all controls automatable in real time without clicks or dropouts.</p>
+    </div>
+  </section>
+
+  <div class="install">
+    <h2>How to install</h2>
+    <div class="steps">
+      <div class="step">
+        <span class="step-num">01</span>
+        <span class="step-text">Download the <strong>Umbra.dmg</strong> file below</span>
+      </div>
+      <div class="step">
+        <span class="step-num">02</span>
+        <span class="step-text">Open the DMG and drag <strong>Umbra</strong> into your Applications folder</span>
+      </div>
+      <div class="step">
+        <span class="step-num">03</span>
+        <span class="step-text">First launch: <strong>right-click → Open</strong> (instead of double-click). macOS will ask for confirmation — click Open. Normal double-click works from then on.</span>
+      </div>
+    </div>
+    <a href="https://github.com/frncsc26/umbra-releases/releases/download/v0.1/Umbra.dmg" class="download-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download Umbra 0.1 Beta
+    </a>
+  </div>
+
+  <footer>
+    <span>Umbra — Beta 0.1</span>
+    <span>macOS 13 Ventura or later</span>
+  </footer>
+
+</div>
+</body>
+</html>
